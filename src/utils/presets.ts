@@ -18,32 +18,38 @@ const createKeyframe = (offset: number, props: Record<string, string>): Keyframe
 const isLegacyProperties = (props: unknown): props is Record<string, string> =>
   typeof props === 'object' && props !== null && !Array.isArray(props);
 
-export const ensureKeyframeIds = (keyframes: Keyframe[]): Keyframe[] =>
-  keyframes.map((kf) => {
-    let properties: KeyframeProperty[];
-    if (isLegacyProperties(kf.properties)) {
-      properties = Object.entries(kf.properties).map(([name, value]) => ({
-        id: generateId(),
-        name,
-        value,
-      }));
-    } else {
-      properties = (kf.properties as KeyframeProperty[]).map((p) => ({
-        ...p,
-        id: p.id || generateId(),
-      }));
-    }
+const isKeyframePropertyArray = (props: unknown): props is KeyframeProperty[] =>
+  Array.isArray(props) && props.every((p: unknown) =>
+    typeof p === 'object' && p !== null && 'id' in (p as Record<string, unknown>) && 'name' in (p as Record<string, unknown>) && 'value' in (p as Record<string, unknown>)
+  );
+
+const normalizeProperties = (raw: unknown): KeyframeProperty[] => {
+  if (isKeyframePropertyArray(raw)) {
+    return raw.map((p) => ({ ...p, id: p.id || generateId() }));
+  }
+  if (isLegacyProperties(raw)) {
+    return Object.entries(raw).map(([name, value]) => ({
+      id: generateId(),
+      name,
+      value,
+    }));
+  }
+  return [];
+};
+
+export const ensureKeyframeIds = (keyframes: unknown[]): Keyframe[] =>
+  keyframes.map((rawKf) => {
+    const kf = rawKf as Record<string, unknown>;
     return {
-      ...kf,
-      id: kf.id || generateId(),
-      properties,
+      id: (kf.id as string) || generateId(),
+      offset: kf.offset as number,
+      properties: normalizeProperties(kf.properties),
     };
   });
 
 export const ensureConfigKeyframes = (config: AnimationConfig): AnimationConfig => ({
   ...config,
-  id: config.id || generateId(),
-  keyframes: ensureKeyframeIds(config.keyframes),
+  keyframes: ensureKeyframeIds(config.keyframes as unknown[]),
 });
 
 export const createDefaultConfig = (): AnimationConfig => ({

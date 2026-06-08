@@ -4,16 +4,17 @@ import { useAnimationStore } from '../store/useAnimationStore';
 import { generateFullCSS, copyToClipboard, exportCSSFile } from '../utils/cssGenerator';
 
 export const CodeOutput = () => {
-  const { config, saveToFavorites, favorites } = useAnimationStore();
+  const { config, isSequencePlaying, sequencePlaybackConfig, saveToFavorites, favorites } = useAnimationStore();
+  const activeConfig = isSequencePlaying && sequencePlaybackConfig ? sequencePlaybackConfig : config;
   const [copied, setCopied] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [favoriteName, setFavoriteName] = useState(config.name);
+  const [favoriteName, setFavoriteName] = useState(activeConfig.name);
   const [isSaved, setIsSaved] = useState(false);
 
-  const cssCode = generateFullCSS(config);
+  const cssCode = generateFullCSS(activeConfig);
 
   useEffect(() => {
-    setIsSaved(favorites.some((f) => f.config.type === config.type && f.name === config.name));
+    setIsSaved(favorites.some((f) => f.config.id === config.id));
   }, [config, favorites]);
 
   const handleCopy = async () => {
@@ -25,7 +26,7 @@ export const CodeOutput = () => {
   };
 
   const handleExport = () => {
-    exportCSSFile(config);
+    exportCSSFile(activeConfig);
   };
 
   const handleSaveFavorite = () => {
