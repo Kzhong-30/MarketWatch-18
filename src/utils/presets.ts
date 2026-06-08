@@ -18,16 +18,17 @@ const createKeyframe = (offset: number, props: Record<string, string>): Keyframe
 export const isLegacyProperties = (props: unknown): props is Record<string, string> =>
   typeof props === 'object' && props !== null && !Array.isArray(props);
 
-export const isKeyframePropertyArray = (props: unknown): props is KeyframeProperty[] =>
-  Array.isArray(props) && props.every((p: unknown) => {
-    if (typeof p !== 'object' || p === null) return false;
-    const obj = p;
-    return 'id' in obj && typeof (obj as {id: unknown}).id === 'string'
-      && 'name' in obj && typeof (obj as {name: unknown}).name === 'string'
-      && 'value' in obj && typeof (obj as {value: unknown}).value === 'string';
-  });
+const isKeyframeProperty = (p: unknown): p is KeyframeProperty => {
+  if (typeof p !== 'object' || p === null) return false;
+  if (!('id' in p) || !('name' in p) || !('value' in p)) return false;
+  const { id, name, value } = p;
+  return typeof id === 'string' && typeof name === 'string' && typeof value === 'string';
+};
 
-export const normalizeProperties = (raw: unknown): KeyframeProperty[] => {
+const isKeyframePropertyArray = (props: unknown): props is KeyframeProperty[] =>
+  Array.isArray(props) && props.every(isKeyframeProperty);
+
+const normalizeProperties = (raw: unknown): KeyframeProperty[] => {
   if (isKeyframePropertyArray(raw)) {
     return raw.map((p) => ({ ...p, id: p.id || generateId() }));
   }
@@ -43,16 +44,27 @@ export const normalizeProperties = (raw: unknown): KeyframeProperty[] => {
   return [];
 };
 
+const extractStringProp = (obj: object, key: string): string | undefined => {
+  if (!(key in obj)) return undefined;
+  const val = (obj as Record<string, unknown>)[key];
+  return typeof val === 'string' ? val : undefined;
+};
+
+const extractNumberProp = (obj: object, key: string): number | undefined => {
+  if (!(key in obj)) return undefined;
+  const val = (obj as Record<string, unknown>)[key];
+  return typeof val === 'number' ? val : undefined;
+};
+
 const normalizeKeyframe = (raw: unknown): Keyframe => {
   if (typeof raw !== 'object' || raw === null) {
     return { id: generateId(), offset: 0, properties: [] };
   }
-  const obj = raw as Record<string, unknown>;
-  return {
-    id: typeof obj.id === 'string' ? obj.id : generateId(),
-    offset: typeof obj.offset === 'number' ? obj.offset : 0,
-    properties: normalizeProperties(obj.properties),
-  };
+  const obj = raw;
+  const id = extractStringProp(obj, 'id') || generateId();
+  const offset = extractNumberProp(obj, 'offset') ?? 0;
+  const properties = normalizeProperties('properties' in obj ? (obj as Record<string, unknown>).properties : undefined);
+  return { id, offset, properties };
 };
 
 export function ensureKeyframeIds(keyframes: Keyframe[]): Keyframe[];

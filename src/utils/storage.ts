@@ -1,22 +1,23 @@
 import { Favorite, AnimationConfig } from '../types/animation';
-import { ensureConfigKeyframes, isLegacyProperties } from './presets';
+import { ensureConfigKeyframes, isLegacyProperties, createDefaultConfig } from './presets';
 
 const FAVORITES_KEY = 'css-animation-favorites';
 
+const isAnimationConfigLike = (config: unknown): config is AnimationConfig => {
+  if (typeof config !== 'object' || config === null) return false;
+  const obj = config;
+  return 'keyframes' in obj && Array.isArray((obj as Record<string, unknown>).keyframes);
+};
+
 const migrateConfig = (config: unknown): AnimationConfig => {
-  if (!config || typeof config !== 'object') return config as AnimationConfig;
-  const cfg = config as AnimationConfig;
-  if (!cfg.keyframes || !Array.isArray(cfg.keyframes) || cfg.keyframes.length === 0) return cfg;
-
-  const needsMigration = cfg.keyframes.some(
-    (kf: unknown) => typeof kf === 'object' && kf !== null && isLegacyProperties((kf as Record<string, unknown>).properties)
+  if (!isAnimationConfigLike(config)) return createDefaultConfig();
+  const needsMigration = config.keyframes.some(
+    (kf: unknown) => typeof kf === 'object' && kf !== null && 'properties' in (kf as Record<string, unknown>) && isLegacyProperties((kf as Record<string, unknown>).properties)
   );
-
   if (needsMigration) {
-    return ensureConfigKeyframes(cfg);
+    return ensureConfigKeyframes(config);
   }
-
-  return cfg;
+  return config;
 };
 
 const migrateFavorites = (favorites: unknown[]): Favorite[] =>
