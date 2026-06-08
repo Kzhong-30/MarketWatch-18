@@ -1,36 +1,40 @@
-import { Favorite, AnimationConfig, KeyframeProperty } from '../types/animation';
-import { ensureConfigKeyframes } from './presets';
+import { Favorite, AnimationConfig } from '../types/animation';
+import { ensureConfigKeyframes, isLegacyProperties } from './presets';
 
 const FAVORITES_KEY = 'css-animation-favorites';
 
-const isLegacyProperties = (props: unknown): props is Record<string, string> =>
-  typeof props === 'object' && props !== null && !Array.isArray(props);
+const migrateConfig = (config: unknown): AnimationConfig => {
+  if (!config || typeof config !== 'object') return config as AnimationConfig;
+  const cfg = config as AnimationConfig;
+  if (!cfg.keyframes || !Array.isArray(cfg.keyframes) || cfg.keyframes.length === 0) return cfg;
 
-const migrateConfig = (config: AnimationConfig): AnimationConfig => {
-  if (!config.keyframes || config.keyframes.length === 0) return config;
-
-  const needsMigration = config.keyframes.some(
-    (kf: any) => isLegacyProperties(kf.properties)
+  const needsMigration = cfg.keyframes.some(
+    (kf: unknown) => typeof kf === 'object' && kf !== null && isLegacyProperties((kf as Record<string, unknown>).properties)
   );
 
   if (needsMigration) {
-    return ensureConfigKeyframes(config);
+    return ensureConfigKeyframes(cfg);
   }
 
-  return config;
+  return cfg;
 };
 
-const migrateFavorites = (favorites: any[]): Favorite[] =>
-  favorites.map((f: any) => ({
-    ...f,
-    config: migrateConfig(f.config),
-  }));
+const migrateFavorites = (favorites: unknown[]): Favorite[] =>
+  favorites.map((f: unknown) => {
+    if (typeof f !== 'object' || f === null) return null;
+    const fav = f as Record<string, unknown>;
+    return {
+      ...fav,
+      config: migrateConfig(fav.config),
+    } as Favorite;
+  }).filter((f): f is Favorite => f !== null);
 
 export const getFavorites = (): Favorite[] => {
   try {
     const data = localStorage.getItem(FAVORITES_KEY);
     if (!data) return [];
-    const parsed = JSON.parse(data);
+    const parsed: unknown = JSON.parse(data);
+    if (!Array.isArray(parsed)) return [];
     return migrateFavorites(parsed);
   } catch {
     return [];

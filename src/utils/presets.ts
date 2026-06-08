@@ -15,41 +15,55 @@ const createKeyframe = (offset: number, props: Record<string, string>): Keyframe
   properties: createProperties(props),
 });
 
-const isLegacyProperties = (props: unknown): props is Record<string, string> =>
+export const isLegacyProperties = (props: unknown): props is Record<string, string> =>
   typeof props === 'object' && props !== null && !Array.isArray(props);
 
-const isKeyframePropertyArray = (props: unknown): props is KeyframeProperty[] =>
-  Array.isArray(props) && props.every((p: unknown) =>
-    typeof p === 'object' && p !== null && 'id' in (p as Record<string, unknown>) && 'name' in (p as Record<string, unknown>) && 'value' in (p as Record<string, unknown>)
-  );
+export const isKeyframePropertyArray = (props: unknown): props is KeyframeProperty[] =>
+  Array.isArray(props) && props.every((p: unknown) => {
+    if (typeof p !== 'object' || p === null) return false;
+    const obj = p;
+    return 'id' in obj && typeof (obj as {id: unknown}).id === 'string'
+      && 'name' in obj && typeof (obj as {name: unknown}).name === 'string'
+      && 'value' in obj && typeof (obj as {value: unknown}).value === 'string';
+  });
 
-const normalizeProperties = (raw: unknown): KeyframeProperty[] => {
+export const normalizeProperties = (raw: unknown): KeyframeProperty[] => {
   if (isKeyframePropertyArray(raw)) {
     return raw.map((p) => ({ ...p, id: p.id || generateId() }));
   }
   if (isLegacyProperties(raw)) {
-    return Object.entries(raw).map(([name, value]) => ({
-      id: generateId(),
-      name,
-      value,
-    }));
+    return Object.entries(raw)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+      .map(([name, value]) => ({
+        id: generateId(),
+        name,
+        value,
+      }));
   }
   return [];
 };
 
-export const ensureKeyframeIds = (keyframes: unknown[]): Keyframe[] =>
-  keyframes.map((rawKf) => {
-    const kf = rawKf as Record<string, unknown>;
-    return {
-      id: (kf.id as string) || generateId(),
-      offset: kf.offset as number,
-      properties: normalizeProperties(kf.properties),
-    };
-  });
+const normalizeKeyframe = (raw: unknown): Keyframe => {
+  if (typeof raw !== 'object' || raw === null) {
+    return { id: generateId(), offset: 0, properties: [] };
+  }
+  const obj = raw as Record<string, unknown>;
+  return {
+    id: typeof obj.id === 'string' ? obj.id : generateId(),
+    offset: typeof obj.offset === 'number' ? obj.offset : 0,
+    properties: normalizeProperties(obj.properties),
+  };
+};
+
+export function ensureKeyframeIds(keyframes: Keyframe[]): Keyframe[];
+export function ensureKeyframeIds(keyframes: unknown[]): Keyframe[];
+export function ensureKeyframeIds(keyframes: unknown[]): Keyframe[] {
+  return keyframes.map(normalizeKeyframe);
+}
 
 export const ensureConfigKeyframes = (config: AnimationConfig): AnimationConfig => ({
   ...config,
-  keyframes: ensureKeyframeIds(config.keyframes as unknown[]),
+  keyframes: ensureKeyframeIds(config.keyframes),
 });
 
 export const createDefaultConfig = (): AnimationConfig => ({

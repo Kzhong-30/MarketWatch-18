@@ -120,7 +120,7 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
           sequencePlaybackConfig: { ...item.config },
           animationKey: s.animationKey + 1,
           isPlaying: true,
-          sequence: s.sequence.map((it, i) =>
+          sequence: s.sequence.map((it) =>
             it.id === item.id ? { ...it, isPlaying: true, isCompleted: false } : it
           ),
         }));
