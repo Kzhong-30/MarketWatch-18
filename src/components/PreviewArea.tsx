@@ -3,17 +3,18 @@ import { useAnimationStore } from '../store/useAnimationStore';
 import { generateKeyframesCSS } from '../utils/cssGenerator';
 
 export const PreviewArea = () => {
-  const { config, isPlaying, animationKey, togglePlay, restartAnimation } = useAnimationStore();
-  const keyframesCSS = generateKeyframesCSS(config);
+  const { config, isPlaying, animationKey, togglePlay, restartAnimation, isSequencePlaying, sequencePlaybackConfig } = useAnimationStore();
+  const activeConfig = isSequencePlaying && sequencePlaybackConfig ? sequencePlaybackConfig : config;
+  const keyframesCSS = generateKeyframesCSS(activeConfig);
 
   const animationStyle: React.CSSProperties = {
-    animationName: config.name || config.type,
-    animationDuration: `${config.duration}s`,
-    animationDelay: `${config.delay}s`,
-    animationTimingFunction: config.easing,
-    animationIterationCount: isPlaying ? config.iterationCount : 0,
-    animationDirection: config.direction,
-    animationFillMode: config.fillMode,
+    animationName: activeConfig.name || activeConfig.type,
+    animationDuration: `${activeConfig.duration}s`,
+    animationDelay: `${activeConfig.delay}s`,
+    animationTimingFunction: activeConfig.easing,
+    animationIterationCount: isPlaying ? activeConfig.iterationCount : 0,
+    animationDirection: activeConfig.direction,
+    animationFillMode: activeConfig.fillMode,
   };
 
   return (
@@ -64,14 +65,14 @@ export const PreviewArea = () => {
           <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 text-xs">
             <div className="grid grid-cols-3 gap-2 text-gray-600">
               <div>
-                <span className="text-gray-400">时长:</span> {config.duration}s
+                <span className="text-gray-400">时长:</span> {activeConfig.duration}s
               </div>
               <div>
-                <span className="text-gray-400">延迟:</span> {config.delay}s
+                <span className="text-gray-400">延迟:</span> {activeConfig.delay}s
               </div>
               <div>
                 <span className="text-gray-400">循环:</span>{' '}
-                {config.iterationCount === 'infinite' ? '∞' : config.iterationCount}
+                {activeConfig.iterationCount === 'infinite' ? '∞' : activeConfig.iterationCount}
               </div>
             </div>
           </div>

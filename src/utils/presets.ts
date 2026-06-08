@@ -15,6 +15,37 @@ const createKeyframe = (offset: number, props: Record<string, string>): Keyframe
   properties: createProperties(props),
 });
 
+const isLegacyProperties = (props: unknown): props is Record<string, string> =>
+  typeof props === 'object' && props !== null && !Array.isArray(props);
+
+export const ensureKeyframeIds = (keyframes: Keyframe[]): Keyframe[] =>
+  keyframes.map((kf) => {
+    let properties: KeyframeProperty[];
+    if (isLegacyProperties(kf.properties)) {
+      properties = Object.entries(kf.properties).map(([name, value]) => ({
+        id: generateId(),
+        name,
+        value,
+      }));
+    } else {
+      properties = (kf.properties as KeyframeProperty[]).map((p) => ({
+        ...p,
+        id: p.id || generateId(),
+      }));
+    }
+    return {
+      ...kf,
+      id: kf.id || generateId(),
+      properties,
+    };
+  });
+
+export const ensureConfigKeyframes = (config: AnimationConfig): AnimationConfig => ({
+  ...config,
+  id: config.id || generateId(),
+  keyframes: ensureKeyframeIds(config.keyframes),
+});
+
 export const createDefaultConfig = (): AnimationConfig => ({
   id: generateId(),
   name: 'fadeIn',

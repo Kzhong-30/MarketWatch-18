@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { LayoutTemplate, Play, Loader2, MousePointerClick, Hand, Scroll } from 'lucide-react';
 import { useAnimationStore } from '../store/useAnimationStore';
-import { templates } from '../utils/presets';
-
-const generateId = () => Math.random().toString(36).substr(2, 9);
+import { templates, ensureConfigKeyframes } from '../utils/presets';
 
 const categoryIcons: Record<string, any> = {
   load: Loader2,
@@ -28,19 +26,7 @@ export const TemplateLibrary = () => {
     : templates;
 
   const loadTemplate = (template: typeof templates[0]) => {
-    const configWithIds = {
-      ...template.config,
-      id: generateId(),
-      keyframes: template.config.keyframes.map((kf) => ({
-        ...kf,
-        id: kf.id || generateId(),
-        properties: kf.properties.map((p) => ({
-          ...p,
-          id: p.id || generateId(),
-        })),
-      })),
-    };
-    setConfig(configWithIds);
+    setConfig(ensureConfigKeyframes(template.config));
     restartAnimation();
   };
 

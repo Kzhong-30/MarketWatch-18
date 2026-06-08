@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, Play, List, Clock, MousePointer, Hand, Zap, RotateCcw, Square } from 'lucide-react';
 import { useAnimationStore } from '../store/useAnimationStore';
 import { TriggerType, AnimationSequenceItem as SequenceItemType } from '../types/animation';
+import { ensureConfigKeyframes } from '../utils/presets';
 
 const triggerOptions: Array<{ value: TriggerType; label: string; icon: any }> = [
   { value: 'immediate', label: '立即', icon: Zap },
@@ -24,14 +25,7 @@ export const AnimationSequence = () => {
     restartAnimation,
   } = useAnimationStore();
 
-  const hoverTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
   const [previewClickId, setPreviewClickId] = useState<string | null>(null);
-
-  useEffect(() => {
-    return () => {
-      Object.values(hoverTimeoutRef.current).forEach(clearTimeout);
-    };
-  }, []);
 
   const handlePlaySequence = () => {
     if (isSequencePlaying) {
@@ -45,7 +39,7 @@ export const AnimationSequence = () => {
   const handleTriggerPreview = (item: SequenceItemType) => {
     if (item.trigger === 'click') {
       setPreviewClickId(item.id);
-      setConfig({ ...item.config });
+      setConfig(ensureConfigKeyframes(item.config));
       restartAnimation();
       setTimeout(() => setPreviewClickId(null), 300);
     }
@@ -53,13 +47,9 @@ export const AnimationSequence = () => {
 
   const handleHoverStart = (item: SequenceItemType) => {
     if (item.trigger === 'hover') {
-      setConfig({ ...item.config });
+      setConfig(ensureConfigKeyframes(item.config));
       restartAnimation();
     }
-  };
-
-  const handleAddToSequence = () => {
-    addToSequence();
   };
 
   const getItemStatus = (item: SequenceItemType, index: number) => {
@@ -78,7 +68,7 @@ export const AnimationSequence = () => {
         </h2>
         <div className="flex items-center gap-2">
           <button
-            onClick={handleAddToSequence}
+            onClick={addToSequence}
             className="p-2 rounded-lg bg-cyan-500 text-white hover:bg-cyan-600 transition-colors"
             title="添加当前动画到序列"
           >
@@ -119,7 +109,6 @@ export const AnimationSequence = () => {
         ) : (
           <div className="space-y-3">
             {sequence.map((item, index) => {
-              const TriggerIcon = triggerOptions.find((t) => t.value === item.trigger)?.icon || Zap;
               const status = getItemStatus(item, index);
 
               return (

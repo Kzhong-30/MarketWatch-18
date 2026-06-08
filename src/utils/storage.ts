@@ -1,11 +1,37 @@
-import { Favorite, AnimationConfig } from '../types/animation';
+import { Favorite, AnimationConfig, KeyframeProperty } from '../types/animation';
+import { ensureConfigKeyframes } from './presets';
 
 const FAVORITES_KEY = 'css-animation-favorites';
+
+const isLegacyProperties = (props: unknown): props is Record<string, string> =>
+  typeof props === 'object' && props !== null && !Array.isArray(props);
+
+const migrateConfig = (config: AnimationConfig): AnimationConfig => {
+  if (!config.keyframes || config.keyframes.length === 0) return config;
+
+  const needsMigration = config.keyframes.some(
+    (kf: any) => isLegacyProperties(kf.properties)
+  );
+
+  if (needsMigration) {
+    return ensureConfigKeyframes(config);
+  }
+
+  return config;
+};
+
+const migrateFavorites = (favorites: any[]): Favorite[] =>
+  favorites.map((f: any) => ({
+    ...f,
+    config: migrateConfig(f.config),
+  }));
 
 export const getFavorites = (): Favorite[] => {
   try {
     const data = localStorage.getItem(FAVORITES_KEY);
-    return data ? JSON.parse(data) : [];
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    return migrateFavorites(parsed);
   } catch {
     return [];
   }

@@ -1,25 +1,16 @@
 import { create } from 'zustand';
 import { AnimationConfig, AnimationSequenceItem, Favorite, Keyframe } from '../types/animation';
-import { createDefaultConfig, presetKeyframes } from '../utils/presets';
+import { createDefaultConfig, presetKeyframes, ensureKeyframeIds, ensureConfigKeyframes } from '../utils/presets';
 import { getFavorites, saveFavorite, deleteFavorite } from '../utils/storage';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
-
-const ensureKeyframeIds = (keyframes: Keyframe[]): Keyframe[] =>
-  keyframes.map((kf) => ({
-    ...kf,
-    id: kf.id || generateId(),
-    properties: kf.properties.map((p) => ({
-      ...p,
-      id: p.id || generateId(),
-    })),
-  }));
 
 interface AnimationState {
   config: AnimationConfig;
   isPlaying: boolean;
   animationKey: number;
   sequence: AnimationSequenceItem[];
+  sequencePlaybackConfig: AnimationConfig | null;
   favorites: Favorite[];
   setConfig: (config: Partial<AnimationConfig>) => void;
   setAnimationType: (type: string) => void;
@@ -49,6 +40,7 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
   isPlaying: true,
   animationKey: 0,
   sequence: [],
+  sequencePlaybackConfig: null,
   currentPlayingIndex: -1,
   isSequencePlaying: false,
   favorites: [],
@@ -77,9 +69,9 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
     sequence: [
       ...state.sequence,
       {
-        id: Math.random().toString(36).substr(2, 9),
-        config: { ...state.config, id: Math.random().toString(36).substr(2, 9) },
-        trigger: 'immediate',
+        id: generateId(),
+        config: { ...state.config, id: generateId() },
+        trigger: 'immediate' as const,
         isPlaying: false,
         isCompleted: false,
       },
@@ -104,40 +96,43 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
     })),
     currentPlayingIndex: -1,
     isSequencePlaying: false,
-    config: state.sequence[0]?.config || state.config,
+    sequencePlaybackConfig: null,
   })),
 
   playSequence: () => {
     const state = get();
     if (state.sequence.length === 0) return;
 
+    const snapshot = state.sequence.map((item) => ({ ...item, config: { ...item.config } }));
+
     set({ isSequencePlaying: true, currentPlayingIndex: 0 });
 
-    const playNext = (index: number) => {
-      if (index >= state.sequence.length) {
-        set({ isSequencePlaying: false, currentPlayingIndex: -1 });
+    const playNext = (index: number, seq: AnimationSequenceItem[]) => {
+      if (index >= seq.length) {
+        set({ isSequencePlaying: false, currentPlayingIndex: -1, sequencePlaybackConfig: null });
         return;
       }
 
-      const item = state.sequence[index];
+      const item = seq[index];
       const playItem = () => {
         set((s) => ({
           currentPlayingIndex: index,
-          config: { ...item.config },
+          sequencePlaybackConfig: { ...item.config },
           animationKey: s.animationKey + 1,
+          isPlaying: true,
           sequence: s.sequence.map((it, i) =>
-            i === index ? { ...it, isPlaying: true, isCompleted: false } : it
+            it.id === item.id ? { ...it, isPlaying: true, isCompleted: false } : it
           ),
         }));
 
         const duration = item.config.duration * 1000 + item.config.delay * 1000;
         setTimeout(() => {
           set((s) => ({
-            sequence: s.sequence.map((it, i) =>
-              i === index ? { ...it, isPlaying: false, isCompleted: true } : it
+            sequence: s.sequence.map((it) =>
+              it.id === item.id ? { ...it, isPlaying: false, isCompleted: true } : it
             ),
           }));
-          playNext(index + 1);
+          playNext(index + 1, seq);
         }, duration);
       };
 
@@ -148,7 +143,7 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
       }
     };
 
-    playNext(0);
+    playNext(0, snapshot);
   },
 
   loadFavorites: () => set({ favorites: getFavorites() }),
@@ -166,7 +161,7 @@ export const useAnimationStore = create<AnimationState>((set, get) => ({
   },
 
   loadFavorite: (favorite) => set({
-    config: { ...favorite.config, keyframes: ensureKeyframeIds(favorite.config.keyframes) },
+    config: ensureConfigKeyframes(favorite.config),
   }),
 
   updateKeyframe: (index, offset, properties) => set((state) => {
